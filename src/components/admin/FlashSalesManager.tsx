@@ -68,7 +68,7 @@ const FlashSalesManager = () => {
         product_id: formData.product_id,
         original_price: parseFloat(formData.original_price),
         sale_price: parseFloat(formData.sale_price),
-        discount_percentage: parseFloat(formData.discount_percentage),
+        discount_percentage: Math.round(parseFloat(formData.discount_percentage)),
         start_date: new Date(formData.start_date).toISOString(),
         end_date: new Date(formData.end_date).toISOString(),
         quantity_limit: formData.quantity_limit ? parseInt(formData.quantity_limit) : null,
