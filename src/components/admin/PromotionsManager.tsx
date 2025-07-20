@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAdmin, Product } from '@/hooks/useAdmin';
+import { useAdmin, Promotion } from '@/hooks/useAdmin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,301 +10,289 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Star } from 'lucide-react';
+import { Plus, Edit, Trash2, Star, Megaphone, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
-const uploadFiles = async (files: File[]): Promise<string[]> => {
-  const urls: string[] = [];
-  for (const file of files) {
-    // Only allow image file types
-    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
-    if (!allowed.includes(file.type)) {
-      throw new Error(`File type not allowed: ${file.type}`);
-    }
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  rating: number;
+  reviews_count: number;
+  description: string | null;
+  image_url: string | null;
+  category: string;
+  in_stock: boolean;
+}
 
-    // Unique file path: products/<timestamp>-<filename>
-    const filePath = `products/${Date.now()}-${file.name}`;
-
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from("product-images")
-      .upload(filePath, file);
-
-    if (error) {
-      console.error("Supabase upload error:", error);
-      throw new Error(error.message || "Upload failed");
-    }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(filePath);
-
-    if (publicUrlData.publicUrl) {
-      urls.push(publicUrlData.publicUrl);
-    } else {
-      throw new Error("Unable to get public URL for uploaded image");
-    }
-  }
-  return urls;
-};
-
-const ProductsManager = () => {
-  const { fetchProducts, createProduct, updateProduct, deleteProduct } = useAdmin();
+const PromotionsManager = () => {
+  const { 
+    fetchPromotions, 
+    createPromotion, 
+    updatePromotion, 
+    deletePromotion,
+    fetchProducts 
+  } = useAdmin();
+  
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   const [formData, setFormData] = useState({
-    name: '',
+    title: '',
     description: '',
-    price: '',
-    original_price: '',
-    category: '',
     image_url: '',
-    images: [] as File[],
-    badge: '',
-    badge_color: 'bg-blue-500',
-    rating: '0',
-    reviews_count: '0',
-    in_stock: true,
+    link_url: '',
+    start_date: '',
+    end_date: '',
+    active: true,
+    selectedProductId: '',
+    discount_percentage: '',
+    discount_amount: '',
+    minimum_order_amount: ''
   });
-  const [previewImages, setPreviewImages] = useState<string[]>([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
+    loadPromotions();
     loadProducts();
   }, []);
 
-  const loadProducts = async () => {
+  const loadPromotions = async () => {
     try {
       setLoading(true);
-      const data = await fetchProducts();
-      setProducts(data);
+      const data = await fetchPromotions();
+      setPromotions(data);
     } catch (error) {
-      console.error('Error loading products:', error);
-      toast.error('Failed to load products');
+      console.error('Error loading promotions:', error);
+      toast.error('Failed to load promotions');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...files] }));
-      
-      const newPreviews = files.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...newPreviews]);
+  const loadProducts = async () => {
+    try {
+      const data = await fetchProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      toast.error('Failed to load products');
     }
   };
 
-  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...files] }));
-      
-      const newPreviews = files.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...newPreviews]);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    const newImages = [...formData.images];
-    const newPreviews = [...previewImages];
-    
-    newImages.splice(index, 1);
-    newPreviews.splice(index, 1);
-    
-    setFormData(prev => ({ ...prev, images: newImages }));
-    setPreviewImages(newPreviews);
-    
-    if (currentImageIndex >= newPreviews.length && newPreviews.length > 0) {
-      setCurrentImageIndex(newPreviews.length - 1);
-    } else if (newPreviews.length === 0) {
-      setCurrentImageIndex(0);
+  const handleProductSelect = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setFormData(prev => ({
+        ...prev,
+        selectedProductId: productId,
+        title: product.name,
+        description: `Special promotion for ${product.name}`,
+        image_url: product.image_url || '',
+        link_url: `/products/${productId}`
+      }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsUploading(true);
-    
     try {
-      let imageUrls: string[] = [];
-      
-      // Upload new images if there are any
-      if (formData.images.length > 0) {
-        try {
-          imageUrls = await uploadFiles(formData.images);
-          toast.success('Images uploaded successfully');
-        } catch (error) {
-          console.error('Error uploading images:', error);
-          toast.error('Failed to upload images');
-          return;
-        }
-      }
-
-      // Use existing image_url if no new images were uploaded
-      const finalImageUrl = imageUrls.length > 0 ? imageUrls[0] : formData.image_url;
-      const allImageUrls = imageUrls.length > 0 ? imageUrls : 
-                          (formData.image_url ? [formData.image_url] : []);
-
-      const productData = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        original_price: formData.original_price ? parseFloat(formData.original_price) : null,
-        category: formData.category,
-        image_url: finalImageUrl,
-        images: allImageUrls,
-        badge: formData.badge,
-        badge_color: formData.badge_color,
-        rating: parseFloat(formData.rating),
-        reviews_count: parseInt(formData.reviews_count),
-        in_stock: formData.in_stock,
+      const promotionData = {
+        title: formData.title,
+        description: formData.description || null,
+        image_url: formData.image_url || null,
+        link_url: formData.link_url || null,
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : new Date().toISOString(),
+        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        active: formData.active,
+        discount_percentage: formData.discount_percentage ? parseInt(formData.discount_percentage) : null,
+        discount_amount: formData.discount_amount ? parseFloat(formData.discount_amount) : null,
+        minimum_order_amount: formData.minimum_order_amount ? parseFloat(formData.minimum_order_amount) : null
       };
 
-      if (editingProduct) {
-        await updateProduct(editingProduct.id, productData);
-        toast.success('Product updated successfully');
+      if (editingPromotion) {
+        await updatePromotion(editingPromotion.id, promotionData);
+        toast.success('Promotion updated successfully');
       } else {
-        await createProduct(productData);
-        toast.success('Product created successfully');
+        await createPromotion(promotionData);
+        toast.success('Promotion created successfully');
       }
 
       setIsDialogOpen(false);
       resetForm();
-      loadProducts();
+      loadPromotions();
     } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error('Failed to save product. Please try again.');
-    } finally {
-      setIsUploading(false);
+      console.error('Error saving promotion:', error);
+      toast.error('Failed to save promotion');
     }
   };
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
+  const handleEdit = (promotion: Promotion) => {
+    setEditingPromotion(promotion);
+    // Extract product ID from link_url if it follows the pattern /products/{id}
+    const productIdMatch = promotion.link_url?.match(/\/products\/(.+)/);
+    const productId = productIdMatch ? productIdMatch[1] : '';
+    const product = products.find(p => p.id === productId);
+    setSelectedProduct(product || null);
+    
     setFormData({
-      name: product.name,
-      description: product.description || '',
-      price: product.price.toString(),
-      original_price: product.original_price?.toString() || '',
-      category: product.category,
-      image_url: product.image_url || '',
-      images: [],
-      badge: product.badge || '',
-      badge_color: product.badge_color || 'bg-blue-500',
-      rating: product.rating.toString(),
-      reviews_count: product.reviews_count.toString(),
-      in_stock: product.in_stock,
+      title: promotion.title,
+      description: promotion.description || '',
+      image_url: promotion.image_url || '',
+      link_url: promotion.link_url || '',
+      start_date: promotion.start_date ? new Date(promotion.start_date).toISOString().slice(0, 16) : '',
+      end_date: promotion.end_date ? new Date(promotion.end_date).toISOString().slice(0, 16) : '',
+      active: promotion.active,
+      selectedProductId: productId,
+      discount_percentage: promotion.discount_percentage?.toString() || '',
+      discount_amount: promotion.discount_amount?.toString() || '',
+      minimum_order_amount: promotion.minimum_order_amount?.toString() || ''
     });
-    setPreviewImages(product.images || []);
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm('Are you sure you want to delete this promotion?')) return;
     
     try {
-      await deleteProduct(id);
-      toast.success('Product deleted successfully');
-      loadProducts();
+      await deletePromotion(id);
+      toast.success('Promotion deleted successfully');
+      loadPromotions();
     } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Failed to delete product');
+      console.error('Error deleting promotion:', error);
+      toast.error('Failed to delete promotion');
     }
   };
 
   const resetForm = () => {
-    setEditingProduct(null);
+    setEditingPromotion(null);
+    setSelectedProduct(null);
     setFormData({
-      name: '',
+      title: '',
       description: '',
-      price: '',
-      original_price: '',
-      category: '',
       image_url: '',
-      images: [],
-      badge: '',
-      badge_color: 'bg-blue-500',
-      rating: '0',
-      reviews_count: '0',
-      in_stock: true,
+      link_url: '',
+      start_date: '',
+      end_date: '',
+      active: true,
+      selectedProductId: '',
+      discount_percentage: '',
+      discount_amount: '',
+      minimum_order_amount: ''
     });
-    setPreviewImages([]);
-    setCurrentImageIndex(0);
   };
 
-  const badgeColors = [
-    { value: 'bg-blue-500', label: 'Blue' },
-    { value: 'bg-green-500', label: 'Green' },
-    { value: 'bg-red-500', label: 'Red' },
-    { value: 'bg-purple-500', label: 'Purple' },
-    { value: 'bg-yellow-500', label: 'Yellow' },
-    { value: 'bg-gray-500', label: 'Gray' },
-  ];
+  const isPromotionExpired = (promotion: Promotion) => {
+    if (!promotion.end_date) return false;
+    return new Date(promotion.end_date) < new Date();
+  };
 
   if (loading) {
-    return <div className="text-center py-8">Loading products...</div>;
+    return <div className="text-center py-8">Loading promotions...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Products ({products.length})</h3>
+        <h3 className="text-lg font-semibold flex items-center">
+          <Megaphone className="h-5 w-5 mr-2 text-blue-500" />
+          Promotions ({promotions.length})
+        </h3>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Product
+              Create Promotion
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
+                {editingPromotion ? 'Edit Promotion' : 'Create New Promotion'}
               </DialogTitle>
               <DialogDescription>
-                {editingProduct ? 'Update product information' : 'Create a new product for your store'}
+                Create promotions to showcase products and attract customers
               </DialogDescription>
             </DialogHeader>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="selectedProductId">Select Product *</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    value={formData.selectedProductId}
+                    onValueChange={handleProductSelect}
                     required
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select a product" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="laptops">Laptops</SelectItem>
-                      <SelectItem value="desktops">Desktops</SelectItem>
-                      <SelectItem value="tablets">Tablets</SelectItem>
-                      <SelectItem value="accessories">Accessories</SelectItem>
-                      <SelectItem value="gaming">Gaming</SelectItem>
-                      <SelectItem value="components">Components</SelectItem>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name} - KES {product.price.toLocaleString()}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="active">Status</Label>
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      checked={formData.active}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, active: checked }))}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedProduct && (
+                <Card className="p-4">
+                  <div className="flex items-center space-x-4">
+                    {selectedProduct.image_url && (
+                      <img
+                        src={selectedProduct.image_url}
+                        alt={selectedProduct.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-semibold">{selectedProduct.name}</h4>
+                      <p className="text-sm text-muted-foreground">{selectedProduct.description}</p>
+                      <div className="flex items-center space-x-4 mt-1">
+                        <span className="font-medium">KES {selectedProduct.price.toLocaleString()}</span>
+                        <div className="flex items-center space-x-1">
+                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                          <span>{selectedProduct.rating}</span>
+                          <span className="text-muted-foreground">({selectedProduct.reviews_count})</span>
+                        </div>
+                        <Badge variant={selectedProduct.in_stock ? "default" : "destructive"}>
+                          {selectedProduct.in_stock ? 'In Stock' : 'Out of Stock'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Promotion Title *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter promotion title"
+                  required
+                />
               </div>
 
               <div className="space-y-2">
@@ -312,198 +300,91 @@ const ProductsManager = () => {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe your promotion"
                   rows={3}
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (KES) *</Label>
+                  <Label htmlFor="discount_percentage">Discount %</Label>
                   <Input
-                    id="price"
+                    id="discount_percentage"
                     type="number"
-                    step="0.01"
                     min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
+                    max="100"
+                    value={formData.discount_percentage}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discount_percentage: e.target.value }))}
+                    placeholder="e.g., 20"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="original_price">Original Price (KES)</Label>
+                  <Label htmlFor="discount_amount">Discount Amount (KES)</Label>
                   <Input
-                    id="original_price"
+                    id="discount_amount"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={formData.original_price}
-                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
+                    value={formData.discount_amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discount_amount: e.target.value }))}
+                    placeholder="e.g., 1000"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="minimum_order_amount">Min. Order (KES)</Label>
+                  <Input
+                    id="minimum_order_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.minimum_order_amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, minimum_order_amount: e.target.value }))}
+                    placeholder="e.g., 5000"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">Start Date</Label>
+                  <Input
+                    id="start_date"
+                    type="datetime-local"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">End Date</Label>
+                  <Input
+                    id="end_date"
+                    type="datetime-local"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Product Images</Label>
-                <div className="flex flex-col space-y-4">
-                  {previewImages.length > 0 && (
-                    <div className="relative">
-                      <div className="aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
-                        <img
-                          src={previewImages[currentImageIndex]}
-                          alt={`Preview ${currentImageIndex + 1}`}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      {previewImages.length > 1 && (
-                        <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
-                          {previewImages.map((_, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => setCurrentImageIndex(index)}
-                              className={`w-3 h-3 rounded-full ${currentImageIndex === index ? 'bg-primary' : 'bg-gray-300'}`}
-                              aria-label={`Go to slide ${index + 1}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removeImage(currentImageIndex)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="file-upload" className="cursor-pointer">
-                        <div className="flex flex-col items-center justify-center space-y-2 p-4 border-2 border-dashed rounded-lg hover:bg-gray-50">
-                          <Plus className="h-6 w-6 text-gray-400" />
-                          <span className="text-sm text-gray-500">Upload Files</span>
-                          <span className="text-xs text-gray-400">Select multiple</span>
-                        </div>
-                      </Label>
-                      <Input
-                        id="file-upload"
-                        type="file"
-                        multiple
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="folder-upload" className="cursor-pointer">
-                        <div className="flex flex-col items-center justify-center space-y-2 p-4 border-2 border-dashed rounded-lg hover:bg-gray-50">
-                          <Plus className="h-6 w-6 text-gray-400" />
-                          <span className="text-sm text-gray-500">Upload Folder</span>
-                          <span className="text-xs text-gray-400">All images in folder</span>
-                        </div>
-                      </Label>
-                      <Input
-                        id="folder-upload"
-                        type="file"
-                        multiple
-                        onChange={handleFolderChange}
-                        className="hidden"
-                        accept="image/*"
-                        // @ts-ignore - webkitdirectory is not in the type definition
-                        webkitdirectory="true"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="badge">Badge Text</Label>
-                  <Input
-                    id="badge"
-                    value={formData.badge}
-                    onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="badge_color">Badge Color</Label>
-                  <Select
-                    value={formData.badge_color}
-                    onValueChange={(value) => setFormData({ ...formData, badge_color: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select badge color" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {badgeColors.map((color) => (
-                        <SelectItem key={color.value} value={color.value}>
-                          {color.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rating">Rating (0-5)</Label>
-                  <Input
-                    id="rating"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="5"
-                    value={formData.rating}
-                    onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="reviews_count">Reviews Count</Label>
-                  <Input
-                    id="reviews_count"
-                    type="number"
-                    min="0"
-                    value={formData.reviews_count}
-                    onChange={(e) => setFormData({ ...formData, reviews_count: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="in_stock">In Stock</Label>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Switch
-                      id="in_stock"
-                      checked={formData.in_stock}
-                      onCheckedChange={(checked) => setFormData({ ...formData, in_stock: checked })}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {formData.in_stock ? 'Available' : 'Out of Stock'}
-                    </span>
-                  </div>
-                </div>
+                <Label htmlFor="link_url">Link URL</Label>
+                <Input
+                  id="link_url"
+                  value={formData.link_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, link_url: e.target.value }))}
+                  placeholder="e.g., /products/laptop-123"
+                />
               </div>
 
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsDialogOpen(false)}
-                  disabled={isUploading}
-                >
+                <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isUploading}>
-                  {isUploading ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}
+                <Button type="submit">
+                  {editingPromotion ? 'Update' : 'Create'} Promotion
                 </Button>
               </DialogFooter>
             </form>
@@ -515,97 +396,121 @@ const ProductsManager = () => {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Promotion</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Rating</TableHead>
-              <TableHead>Stock</TableHead>
+              <TableHead>Discount</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <div className="flex items-center space-x-3">
-                    {product.images && product.images.length > 0 && (
-                      <div className="relative w-12 h-12">
+            {promotions.map((promotion) => {
+              // Extract product ID from link_url if it follows the pattern /products/{id}
+              const productIdMatch = promotion.link_url?.match(/\/products\/(.+)/);
+              const productId = productIdMatch ? productIdMatch[1] : '';
+              const product = products.find(p => p.id === productId);
+              return (
+                <TableRow key={promotion.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      {promotion.image_url ? (
                         <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="w-full h-full object-cover rounded"
+                          src={promotion.image_url}
+                          alt={promotion.title}
+                          className="w-12 h-12 object-cover rounded"
                         />
-                        {product.images.length > 1 && (
-                          <span className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                            +{product.images.length - 1}
-                          </span>
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">{promotion.title}</div>
+                        {promotion.description && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {promotion.description}
+                          </div>
                         )}
                       </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {product ? (
+                      <div>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          KES {product.price.toLocaleString()}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">No product</span>
                     )}
-                    <div>
-                      <div className="font-medium">{product.name}</div>
-                      {product.badge && (
-                        <Badge className={`${product.badge_color} text-white text-xs`}>
-                          {product.badge}
-                        </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {promotion.discount_percentage ? (
+                      <Badge variant="secondary">{promotion.discount_percentage}% off</Badge>
+                    ) : promotion.discount_amount ? (
+                      <Badge variant="secondary">KES {promotion.discount_amount} off</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">No discount</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {promotion.start_date && (
+                        <div>From: {new Date(promotion.start_date).toLocaleDateString()}</div>
+                      )}
+                      {promotion.end_date && (
+                        <div>Until: {new Date(promotion.end_date).toLocaleDateString()}</div>
                       )}
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">{product.category}</TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <span>KES {product.price.toLocaleString()}</span>
-                    {product.original_price && (
-                      <span className="text-xs text-muted-foreground line-through">
-                        KES {product.original_price.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span>{product.rating}</span>
-                    <span className="text-muted-foreground">({product.reviews_count})</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={product.in_stock ? "default" : "destructive"}>
-                    {product.in_stock ? 'In Stock' : 'Out of Stock'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(product)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={
+                        !promotion.active ? 'secondary' :
+                        isPromotionExpired(promotion) ? 'destructive' : 
+                        'default'
+                      }
                     >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDelete(product.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      {!promotion.active ? 'Inactive' :
+                       isPromotionExpired(promotion) ? 'Expired' : 
+                       'Active'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(promotion)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(promotion.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
 
-      {products.length === 0 && (
+      {promotions.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          No products found. Create your first product to get started.
+          No promotions found. Create your first promotion to showcase products and attract customers.
         </div>
       )}
     </div>
   );
 };
 
-export default ProductsManager;
+export default PromotionsManager;
