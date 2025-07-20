@@ -591,7 +591,7 @@ export const useAdmin = () => {
   const createVoucher = async (voucher: any) => {
     const { data, error } = await supabase
       .from('vouchers')
-      .insert([{ ...voucher, created_by: user?.id }])
+      .insert([voucher])
       .select()
       .single();
 
