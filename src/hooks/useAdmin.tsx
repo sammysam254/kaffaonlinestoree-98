@@ -495,7 +495,7 @@ export const useAdmin = () => {
   const createPromotion = async (promotion: any) => {
     const { data, error } = await supabase
       .from('promotions')
-      .insert([{ ...promotion, created_by: user?.id }])
+      .insert([promotion]) // Remove the created_by field
       .select()
       .single();
 
