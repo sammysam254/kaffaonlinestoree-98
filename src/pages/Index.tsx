@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAdmin } from '@/hooks/useAdmin';
+import { useAdmin, type Promotion } from '@/hooks/useAdmin';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,14 +14,8 @@ import HeroSlider from '@/components/HeroSlider';
 import Categories from '@/components/Categories';
 import Footer from '@/components/Footer';
 
-interface Promotion {
-  id: string;
-  title: string;
-  description: string | null;
-  image_url: string | null;
-  link_url: string | null;
-  active: boolean;
-  product_id?: string | null;
+interface PromotionWithProduct extends Promotion {
+  product?: Product | null;
 }
 
 interface Product {
@@ -34,18 +28,22 @@ interface Product {
 const Index = () => {
   console.log('Index component rendering...');
   const { user } = useAuth();
-  const { isAdmin, fetchPromotions, createPromotion: savePromotion } = useAdmin();
-  const [activePromotions, setActivePromotions] = useState<Promotion[]>([]);
+  const { isAdmin, fetchPromotions, createPromotion: savePromotion, fetchProducts: getProducts } = useAdmin();
+  const [activePromotions, setActivePromotions] = useState<PromotionWithProduct[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showAddPromo, setShowAddPromo] = useState(false);
-  const [newPromotion, setNewPromotion] = useState<Partial<Promotion>>({
+  const [newPromotion, setNewPromotion] = useState({
     title: '',
     description: '',
-    active: true,
-    image_url: null,
+    image_url: '',
     link_url: '',
-    product_id: null
+    start_date: '',
+    end_date: '',
+    is_active: true,
+    discount_percentage: 0,
+    discount_amount: null,
+    minimum_order_amount: null
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -69,7 +67,18 @@ const Index = () => {
   const loadActivePromotions = async () => {
     try {
       const promotions = await fetchPromotions();
-      const active = promotions.filter(promo => promo.active);
+      const products = await getProducts();
+      
+      // Enrich promotions with product data
+      const enrichedPromotions = promotions.map(promo => {
+        const product = products.find(p => promo.link_url?.includes(p.id));
+        return {
+          ...promo,
+          product: product || null
+        };
+      });
+      
+      const active = enrichedPromotions.filter(promo => promo.is_active);
       setActivePromotions(active);
     } catch (error) {
       console.error('Error loading promotions:', error);
@@ -78,9 +87,7 @@ const Index = () => {
 
   const fetchProducts = async () => {
     try {
-      // Replace with your actual products fetch API
-      const response = await fetch('/api/products');
-      const data = await response.json();
+      const data = await getProducts();
       setProducts(data);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -109,7 +116,6 @@ const Index = () => {
     if (selectedProduct) {
       setNewPromotion(prev => ({
         ...prev,
-        product_id: productId,
         title: selectedProduct.name,
         image_url: selectedProduct.image_url,
         link_url: `/products/${productId}`
@@ -139,7 +145,7 @@ const Index = () => {
         description: newPromotion.description || '',
         image_url: imageUrl,
         link_url: newPromotion.link_url || '',
-        active: newPromotion.active || true,
+        is_active: newPromotion.is_active || true,
         start_date: new Date().toISOString(),
         end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
       };
@@ -156,10 +162,14 @@ const Index = () => {
     setNewPromotion({
       title: '',
       description: '',
-      active: true,
-      image_url: null,
+      image_url: '',
       link_url: '',
-      product_id: null
+      start_date: '',
+      end_date: '',
+      is_active: true,
+      discount_percentage: 0,
+      discount_amount: null,
+      minimum_order_amount: null
     });
     setSelectedFile(null);
     setPreviewImage(null);
@@ -277,7 +287,7 @@ const Index = () => {
                             onClick={() => {
                               setPreviewImage(null);
                               setSelectedFile(null);
-                              setNewPromotion({...newPromotion, image_url: null});
+                              setNewPromotion({...newPromotion, image_url: ''});
                             }}
                             className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
                           >
@@ -381,6 +391,23 @@ const Index = () => {
                               </p>
                             )}
                             
+                            {/* Product Price Display */}
+                            {promotion.product && (
+                              <div className="mb-4">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-muted-foreground">Product Price:</span>
+                                  <span className="text-lg font-bold text-primary">
+                                    ${promotion.product.price.toFixed(2)}
+                                  </span>
+                                </div>
+                                {promotion.discount_percentage && (
+                                  <div className="text-sm text-green-600 font-medium">
+                                    {promotion.discount_percentage}% OFF
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
                             {promotion.link_url && (
                               <Button asChild className="w-full">
                                 <a 
@@ -388,7 +415,7 @@ const Index = () => {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  Learn More
+                                  {promotion.product ? 'View Product' : 'Learn More'}
                                 </a>
                               </Button>
                             )}
