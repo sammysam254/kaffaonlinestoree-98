@@ -90,16 +90,22 @@ const PromotionsManager = () => {
       setFormData(prev => ({
         ...prev,
         selectedProductId: productId,
-        title: product.name,
-        description: `Special promotion for ${product.name}`,
+        title: `${product.name} - Special Offer`,
+        description: `Special promotion for ${product.name}. ${product.description || ''}`,
         image_url: product.image_url || '',
-        link_url: `/products/${productId}`
+        link_url: `https://kaffaonline.store/products/${productId}`
       }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.selectedProductId) {
+      toast.error('Please select a product');
+      return;
+    }
+    
     try {
       const promotionData = {
         title: formData.title,
@@ -108,11 +114,14 @@ const PromotionsManager = () => {
         link_url: formData.link_url || null,
         start_date: formData.start_date ? new Date(formData.start_date).toISOString() : new Date().toISOString(),
         end_date: formData.end_date ? new Date(formData.end_date).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        is_active: formData.active,
         active: formData.active,
         discount_percentage: formData.discount_percentage ? parseInt(formData.discount_percentage) : null,
         discount_amount: formData.discount_amount ? parseFloat(formData.discount_amount) : null,
         minimum_order_amount: formData.minimum_order_amount ? parseFloat(formData.minimum_order_amount) : null
       };
+
+      console.log('Creating promotion with data:', promotionData);
 
       if (editingPromotion) {
         await updatePromotion(editingPromotion.id, promotionData);
@@ -127,7 +136,7 @@ const PromotionsManager = () => {
       loadPromotions();
     } catch (error) {
       console.error('Error saving promotion:', error);
-      toast.error('Failed to save promotion');
+      toast.error(`Failed to save promotion: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
