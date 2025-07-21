@@ -237,15 +237,24 @@ const PromotionsManager = () => {
                     onValueChange={handleProductSelect}
                     required
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full bg-background border border-input">
                       <SelectValue placeholder="Select a product" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} - KES {product.price.toLocaleString()}
-                        </SelectItem>
-                      ))}
+                    <SelectContent className="bg-popover border border-border shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                      {products.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          No products available
+                        </div>
+                      ) : (
+                        products.map((product) => (
+                          <SelectItem key={product.id} value={product.id} className="cursor-pointer hover:bg-accent">
+                            <div className="flex items-center space-x-2">
+                              <span>{product.name}</span>
+                              <span className="text-muted-foreground">- KES {product.price.toLocaleString()}</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
