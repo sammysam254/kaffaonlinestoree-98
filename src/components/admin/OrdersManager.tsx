@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Eye, Package, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, Package, Truck, CheckCircle, XCircle, Download, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { getProductImageUrl } from '@/utils/imageUtils';
+import ReceiptGenerator from './ReceiptGenerator';
 
 const OrdersManager = () => {
   const { fetchOrders, createOrder, updateOrderStatus, fetchProducts } = useAdmin();
@@ -19,6 +20,8 @@ const OrdersManager = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [paymentConfirmationNumber, setPaymentConfirmationNumber] = useState('');
   const [products, setProducts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -109,6 +112,12 @@ const OrdersManager = () => {
       console.error('Error creating order:', error);
       toast.error('Failed to create order');
     }
+  };
+
+  const handleReceiptGeneration = (order: Order) => {
+    setSelectedOrder(order);
+    setPaymentConfirmationNumber('');
+    setIsReceiptDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -310,97 +319,24 @@ const OrdersManager = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
-                    <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedOrder(order)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Order Details</DialogTitle>
-                        </DialogHeader>
-                        
-                        {selectedOrder && (
-                          <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <h4 className="font-semibold mb-2">Customer Information</h4>
-                                <div className="space-y-1 text-sm">
-                                  <div><strong>Name:</strong> {selectedOrder.customer_name}</div>
-                                  <div><strong>Email:</strong> {selectedOrder.customer_email}</div>
-                                  {selectedOrder.customer_phone && (
-                                    <div><strong>Phone:</strong> {selectedOrder.customer_phone}</div>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <h4 className="font-semibold mb-2">Order Information</h4>
-                                <div className="space-y-1 text-sm">
-                                  <div><strong>Order ID:</strong> {selectedOrder.id}</div>
-                                  <div><strong>Date:</strong> {new Date(selectedOrder.created_at).toLocaleString()}</div>
-                                  <div><strong>Status:</strong> {getStatusBadge(selectedOrder.status)}</div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <h4 className="font-semibold mb-2">Shipping Address</h4>
-                              <p className="text-sm">{selectedOrder.shipping_address}</p>
-                            </div>
-
-                            <div>
-                              <h4 className="font-semibold mb-2">Product Details</h4>
-                              <div className="flex items-center space-x-3 p-3 border rounded-lg">
-                                {selectedOrder.products && (
-                                  <img
-                                    src={getProductImageUrl(selectedOrder.products)}
-                                    alt={selectedOrder.products.name}
-                                    className="w-16 h-16 object-cover rounded"
-                                    onError={(e) => {
-                                      e.currentTarget.src = '/placeholder-product.jpg';
-                                    }}
-                                  />
-                                )}
-                                <div className="flex-1">
-                                  <div className="font-medium">{selectedOrder.products?.name}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Quantity: {selectedOrder.quantity} × KES {selectedOrder.products?.price.toLocaleString()}
-                                  </div>
-                                  <div className="font-semibold">
-                                    Total: KES {selectedOrder.total_amount.toLocaleString()}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <h4 className="font-semibold mb-2">Update Order Status</h4>
-                              <Select
-                                value={selectedOrder.status}
-                                onValueChange={(value) => handleStatusUpdate(selectedOrder.id, value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {orderStatuses.map((status) => (
-                                    <SelectItem key={status.value} value={status.value}>
-                                      {status.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setIsDetailDialogOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleReceiptGeneration(order)}
+                    >
+                      <Receipt className="h-4 w-4" />
+                    </Button>
 
                     <Select
                       value={order.status}
@@ -425,11 +361,143 @@ const OrdersManager = () => {
         </Table>
       </div>
 
-      {orders.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          No orders found. Orders will appear here when customers make purchases.
-        </div>
-      )}
+      {/* Order Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Customer Information</h4>
+                  <div className="space-y-1 text-sm">
+                    <div><strong>Name:</strong> {selectedOrder.customer_name}</div>
+                    <div><strong>Email:</strong> {selectedOrder.customer_email}</div>
+                    {selectedOrder.customer_phone && (
+                      <div><strong>Phone:</strong> {selectedOrder.customer_phone}</div>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold mb-2">Order Information</h4>
+                  <div className="space-y-1 text-sm">
+                    <div><strong>Order ID:</strong> {selectedOrder.id}</div>
+                    <div><strong>Date:</strong> {new Date(selectedOrder.created_at).toLocaleString()}</div>
+                    <div><strong>Status:</strong> {getStatusBadge(selectedOrder.status)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Shipping Address</h4>
+                <p className="text-sm">{selectedOrder.shipping_address}</p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Product Details</h4>
+                <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                  {selectedOrder.products && (
+                    <img
+                      src={getProductImageUrl(selectedOrder.products)}
+                      alt={selectedOrder.products.name}
+                      className="w-16 h-16 object-cover rounded"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder-product.jpg';
+                      }}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <div className="font-medium">{selectedOrder.products?.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Quantity: {selectedOrder.quantity} × KES {selectedOrder.products?.price.toLocaleString()}
+                    </div>
+                    <div className="font-semibold">
+                      Total: KES {selectedOrder.total_amount.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Update Order Status</h4>
+                <Select
+                  value={selectedOrder.status}
+                  onValueChange={(value) => handleStatusUpdate(selectedOrder.id, value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orderStatuses.map((status) => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Generation Dialog */}
+      <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generate Receipt</DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Generating receipt for Order #{selectedOrder.id.substring(0, 8)}
+                </p>
+                <p className="text-sm">
+                  <strong>Customer:</strong> {selectedOrder.customer_name}
+                </p>
+                <p className="text-sm">
+                  <strong>Total:</strong> KES {selectedOrder.total_amount.toLocaleString()}
+                </p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Payment Confirmation Number (Optional)
+                </label>
+                <Input
+                  type="text"
+                  value={paymentConfirmationNumber}
+                  onChange={(e) => setPaymentConfirmationNumber(e.target.value)}
+                  placeholder="Enter payment confirmation number"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This will be included in the receipt for verification
+                </p>
+              </div>
+              
+              <div className="flex space-x-2">
+                <ReceiptGenerator 
+                  order={selectedOrder} 
+                  paymentConfirmationNumber={paymentConfirmationNumber || undefined}
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsReceiptDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
