@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
-import { getProductImageUrl } from '@/utils/imageUtils';
+import { getProductImageUrl, getAllImageUrls } from '@/utils/imageUtils';
 
 interface Product {
   id: string;
@@ -12,6 +12,7 @@ interface Product {
   price: number;
   original_price: number | null;
   image_url: string | null;
+  images: string[] | null;
   category: string;
   rating: number;
   reviews_count: number;
@@ -33,6 +34,9 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
 
   if (!product) return null;
 
+  // Get all available images
+  const uniqueImages = getAllImageUrls(product);
+
   const handleAddToCart = () => {
     addToCart({
       id: product.id,
@@ -41,6 +45,14 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
       image: getProductImageUrl(product),
     });
     onClose();
+  };
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % uniqueImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + uniqueImages.length) % uniqueImages.length);
   };
 
   return (
@@ -57,14 +69,47 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
           <div className="relative">
             <div className="relative aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
               <img
-                src={getProductImageUrl(product)}
-                alt={product.name}
+                src={uniqueImages[currentImageIndex]}
+                alt={`${product.name} - Image ${currentImageIndex + 1}`}
                 className="w-full h-full object-contain"
                 onError={(e) => {
                   e.currentTarget.src = '/placeholder-product.jpg';
                 }}
               />
+              
+              {/* Navigation arrows for multiple images */}
+              {uniqueImages.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
             </div>
+            
+            {/* Image indicators */}
+            {uniqueImages.length > 1 && (
+              <div className="flex justify-center space-x-2 mt-2">
+                {uniqueImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentImageIndex ? 'bg-primary' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
             
             {product.badge && (
               <Badge className={`absolute top-3 left-3 ${product.badge_color || 'bg-primary'} text-white`}>

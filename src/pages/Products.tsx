@@ -19,6 +19,7 @@ interface Product {
   price: number;
   original_price: number | null;
   image_url: string | null;
+  images: string[] | null;
   category: string;
   rating: number;
   reviews_count: number;

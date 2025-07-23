@@ -16,6 +16,7 @@ interface Product {
   rating: number;
   reviews_count: number;
   image_url: string | null;
+  images: string[] | null;
   badge: string | null;
   badge_color: string | null;
   is_featured: boolean;

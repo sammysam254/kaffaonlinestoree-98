@@ -24,6 +24,42 @@ export const getImageUrl = (product: any): string => {
   return '/placeholder-product.jpg';
 };
 
+export const getAllImageUrls = (product: any): string[] => {
+  const allImages = [];
+  
+  // Add primary image_url if it exists
+  if (product?.image_url) {
+    if (!product.image_url.startsWith('http') && !product.image_url.startsWith('/')) {
+      // It's a filename stored in storage, construct the full URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(`products/${product.image_url}`);
+      allImages.push(publicUrl);
+    } else {
+      allImages.push(product.image_url);
+    }
+  }
+  
+  // Add images from array if they exist
+  if (product?.images && product.images.length > 0) {
+    product.images.forEach((image: string) => {
+      if (!image.startsWith('http') && !image.startsWith('/')) {
+        // It's a filename stored in storage, construct the full URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(`products/${image}`);
+        allImages.push(publicUrl);
+      } else {
+        allImages.push(image);
+      }
+    });
+  }
+  
+  // Remove duplicates and return
+  const uniqueImages = [...new Set(allImages)];
+  return uniqueImages.length > 0 ? uniqueImages : ['/placeholder-product.jpg'];
+};
+
 export const getProductImageUrl = (product: any): string => {
   return getImageUrl(product);
 };
