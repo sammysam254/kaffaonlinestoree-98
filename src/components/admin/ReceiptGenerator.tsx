@@ -178,6 +178,7 @@ interface Order {
   status: string;
   created_at: string;
   quantity: number;
+  product_id?: string;
   products?: {
     id: string;
     name: string;
@@ -189,11 +190,19 @@ interface Order {
 interface ReceiptDocumentProps {
   order: Order;
   paymentConfirmationNumber?: string;
+  productInfo?: {
+    name: string;
+    price: number;
+    category: string;
+  };
 }
 
 // PDF Document Component
-const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirmationNumber }) => {
-  const subtotal = (order.products?.price || 0) * order.quantity;
+const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirmationNumber, productInfo }) => {
+  // Use productInfo if available, otherwise fall back to order.products
+  const product = productInfo || order.products;
+  const unitPrice = product?.price || (order.total_amount - (order.shipping_fee || 0) + (order.voucher_discount || 0)) / order.quantity;
+  const subtotal = unitPrice * order.quantity;
   const shipping = order.shipping_fee || 0;
   const discount = order.voucher_discount || 0;
   const finalTotal = order.total_amount;
@@ -231,7 +240,7 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
             <Text style={styles.infoText}>Payment Method: {order.payment_method?.toUpperCase() || 'N/A'}</Text>
             <Text style={styles.infoText}>Status: {order.status.toUpperCase()}</Text>
             {paymentConfirmationNumber && (
-              <Text style={styles.infoText}>Confirmation: {paymentConfirmationNumber}</Text>
+              <Text style={styles.infoText}>M-Pesa Code: {paymentConfirmationNumber}</Text>
             )}
           </View>
         </View>
@@ -269,16 +278,16 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
           {/* Product Row */}
           <View style={styles.tableRow}>
             <Text style={[styles.tableCell, styles.productName]}>
-              {order.products?.name || 'Product'}
-              {order.products?.category && (
+              {product?.name || 'Product Not Available'}
+              {product?.category && (
                 <Text style={{ fontSize: 8, color: '#888888' }}>
-                  {'\n'}Category: {order.products.category}
+                  {'\n'}Category: {product.category}
                 </Text>
               )}
             </Text>
             <Text style={[styles.tableCell, styles.quantity]}>{order.quantity}</Text>
             <Text style={[styles.tableCell, styles.price]}>
-              KES {(order.products?.price || 0).toLocaleString()}
+              KES {unitPrice.toLocaleString()}
             </Text>
             <Text style={[styles.tableCell, styles.total]}>
               KES {subtotal.toLocaleString()}
@@ -320,7 +329,7 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
               ✓ PAYMENT CONFIRMED
             </Text>
             <Text style={[styles.infoText, { textAlign: 'center', marginTop: 5 }]}>
-              Confirmation Number: {paymentConfirmationNumber}
+              M-Pesa Confirmation Code: {paymentConfirmationNumber}
             </Text>
           </View>
         )}
@@ -358,35 +367,52 @@ interface ReceiptGeneratorProps {
 
 const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({ order }) => {
   const [mpesaCode, setMpesaCode] = useState<string | null>(null);
+  const [productInfo, setProductInfo] = useState<{name: string; price: number; category: string} | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchMpesaCode = async () => {
-      if (order.payment_method !== 'mpesa') return;
-      
+    const fetchOrderDetails = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('mpesa_payments')
-          .select('mpesa_code')
-          .eq('order_id', order.id)
-          .eq('status', 'confirmed')
-          .single();
-        
-        if (error) {
-          console.error('Error fetching M-Pesa code:', error);
-        } else if (data?.mpesa_code) {
-          setMpesaCode(data.mpesa_code);
+        // Fetch M-Pesa code if payment method is mpesa
+        if (order.payment_method === 'mpesa') {
+          const { data: mpesaData, error: mpesaError } = await supabase
+            .from('mpesa_payments')
+            .select('mpesa_code')
+            .eq('order_id', order.id)
+            .maybeSingle();
+          
+          if (mpesaError) {
+            console.error('Error fetching M-Pesa code:', mpesaError);
+          } else if (mpesaData?.mpesa_code) {
+            setMpesaCode(mpesaData.mpesa_code);
+          }
+        }
+
+        // Fetch product information if product_id exists
+        if (order.product_id) {
+          const { data: productData, error: productError } = await supabase
+            .from('products')
+            .select('name, price, category')
+            .eq('id', order.product_id)
+            .maybeSingle();
+          
+          if (productError) {
+            console.error('Error fetching product info:', productError);
+          } else if (productData) {
+            setProductInfo(productData);
+          }
         }
       } catch (error) {
-        console.error('Error fetching M-Pesa code:', error);
+        console.error('Error fetching order details:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMpesaCode();
-  }, [order.id, order.payment_method]);
+    fetchOrderDetails();
+  }, [order.id, order.payment_method, order.product_id]);
+
   const fileName = `receipt-${order.id.substring(0, 8)}-${new Date().toISOString().split('T')[0]}.pdf`;
 
   return (
@@ -394,20 +420,21 @@ const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({ order }) => {
       document={
         <ReceiptDocument 
           order={order} 
-          paymentConfirmationNumber={mpesaCode}
+          paymentConfirmationNumber={mpesaCode || undefined}
+          productInfo={productInfo || undefined}
         />
       }
       fileName={fileName}
     >
-      {({ blob, url, loading, error }) => (
+      {({ blob, url, loading: pdfLoading, error }) => (
         <Button
           variant="outline"
           size="sm"
-          disabled={loading}
+          disabled={loading || pdfLoading}
           className="flex items-center space-x-2"
         >
           <Download className="h-4 w-4" />
-          <span>{loading ? 'Generating...' : 'Download Receipt'}</span>
+          <span>{loading || pdfLoading ? 'Generating...' : 'Download Receipt'}</span>
         </Button>
       )}
     </PDFDownloadLink>
