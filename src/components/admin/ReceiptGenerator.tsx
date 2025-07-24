@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 // Define styles for the PDF
 const styles = StyleSheet.create({
@@ -353,13 +354,39 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
 
 interface ReceiptGeneratorProps {
   order: Order;
-  paymentConfirmationNumber?: string;
 }
 
-const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({ 
-  order, 
-  paymentConfirmationNumber 
-}) => {
+const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({ order }) => {
+  const [mpesaCode, setMpesaCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchMpesaCode = async () => {
+      if (order.payment_method !== 'mpesa') return;
+      
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('mpesa_payments')
+          .select('mpesa_code')
+          .eq('order_id', order.id)
+          .eq('status', 'confirmed')
+          .single();
+        
+        if (error) {
+          console.error('Error fetching M-Pesa code:', error);
+        } else if (data?.mpesa_code) {
+          setMpesaCode(data.mpesa_code);
+        }
+      } catch (error) {
+        console.error('Error fetching M-Pesa code:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMpesaCode();
+  }, [order.id, order.payment_method]);
   const fileName = `receipt-${order.id.substring(0, 8)}-${new Date().toISOString().split('T')[0]}.pdf`;
 
   return (
@@ -367,7 +394,7 @@ const ReceiptGenerator: React.FC<ReceiptGeneratorProps> = ({
       document={
         <ReceiptDocument 
           order={order} 
-          paymentConfirmationNumber={paymentConfirmationNumber}
+          paymentConfirmationNumber={mpesaCode}
         />
       }
       fileName={fileName}

@@ -484,7 +484,6 @@ const OrdersManager = () => {
               <div className="flex space-x-2">
                 <ReceiptGenerator 
                   order={selectedOrder} 
-                  paymentConfirmationNumber={paymentConfirmationNumber || undefined}
                 />
                 <Button 
                   variant="outline" 
