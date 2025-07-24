@@ -259,10 +259,10 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
           
           {/* Table Header */}
           <View style={styles.tableHeaderRow}>
-            <Text style={[styles.tableCellHeader, styles.productName]}>Product</Text>
+            <Text style={[styles.tableCellHeader, styles.productName]}>Item Name</Text>
             <Text style={[styles.tableCellHeader, styles.quantity]}>Qty</Text>
-            <Text style={[styles.tableCellHeader, styles.price]}>Unit Price</Text>
-            <Text style={[styles.tableCellHeader, styles.total]}>Total</Text>
+            <Text style={[styles.tableCellHeader, styles.price]}>Price per Item</Text>
+            <Text style={[styles.tableCellHeader, styles.total]}>Total Price</Text>
           </View>
 
           {/* Product Row */}
