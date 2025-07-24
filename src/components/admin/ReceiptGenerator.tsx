@@ -202,10 +202,18 @@ const ReceiptDocument: React.FC<ReceiptDocumentProps> = ({ order, paymentConfirm
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>SALES RECEIPT</Text>
-          <Text style={styles.companyInfo}>Your Company Name</Text>
-          <Text style={styles.companyInfo}>123 Business Street, City, State 12345</Text>
-          <Text style={styles.companyInfo}>Phone: +254 700 123 456 | Email: info@company.com</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <Image 
+              src="/lovable-uploads/e047520e-19b1-47f7-8286-99901fcfc9ab.png"
+              style={{ width: 50, height: 50, marginRight: 10 }}
+            />
+            <Text style={styles.title}>KAFFA ONLINE STORE</Text>
+          </View>
+          <Text style={styles.companyInfo}>Thika Town, Kenya</Text>
+          <Text style={styles.companyInfo}>Phone: +254743049549 | Email: masterkaffa762@gmail.com</Text>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: '#000000', marginTop: 10 }}>
+            <Text style={[styles.title, { fontSize: 18, marginBottom: 5 }]}>SALES RECEIPT</Text>
+          </View>
         </View>
 
         {/* Receipt Info */}
