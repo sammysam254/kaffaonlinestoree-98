@@ -12,6 +12,7 @@ import { Play, Zap, Upload, X, Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import HeroSlider from '@/components/HeroSlider';
 import Categories from '@/components/Categories';
+import AdsSection from '@/components/AdsSection';
 import Footer from '@/components/Footer';
 
 interface PromotionWithProduct extends Promotion {
@@ -193,6 +194,9 @@ const Index = () => {
       <Header />
       <main>
         <HeroSlider />
+        
+        {/* Ads Section */}
+        <AdsSection />
         
         {/* Admin Debug Section - Only show to admin users */}
         {user && isAdmin && (

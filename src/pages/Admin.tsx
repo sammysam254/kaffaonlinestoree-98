@@ -18,6 +18,7 @@ import VouchersManager from '@/components/admin/VouchersManager';
 import MpesaPaymentsManager from '@/components/admin/MpesaPaymentsManager';
 import NcbaLoopPaymentsManager from '@/components/admin/NcbaLoopPaymentsManager';
 import SupportTicketsManager from '@/components/admin/SupportTicketsManager';
+import AdsManager from '@/components/admin/AdsManager';
 import { toast } from 'sonner';
 
 const Admin = () => {
@@ -63,6 +64,8 @@ const Admin = () => {
         return <PromotionsManager />;
       case 'support':
         return <SupportTicketsManager />;
+      case 'ads':
+        return <AdsManager />;
       default:
         return <ProductsManager />;
     }
@@ -88,6 +91,8 @@ const Admin = () => {
         return { title: 'Promotional Content', description: 'Create and manage promotional banners and campaigns' };
       case 'support':
         return { title: 'Support Tickets', description: 'Manage customer support tickets and respond to inquiries' };
+      case 'ads':
+        return { title: 'Ads Management', description: 'Create and manage advertisements including product ads, image ads, video ads, and URL ads' };
       default:
         return { title: 'Products Management', description: 'Add, edit, and delete products in your store' };
     }

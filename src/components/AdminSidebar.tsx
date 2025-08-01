@@ -13,7 +13,8 @@ import {
   CreditCard,
   LogOut,
   Menu,
-  Home
+  Home,
+  MonitorSpeaker
 } from 'lucide-react';
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const adminTabs = [
   { id: 'mpesa', label: 'M-Pesa Payments', icon: Smartphone },
   { id: 'flash-sales', label: 'Flash Sales', icon: Zap },
   { id: 'vouchers', label: 'Vouchers', icon: Ticket },
+  { id: 'ads', label: 'Ads', icon: MonitorSpeaker },
   { id: 'messages', label: 'Messages', icon: MessageSquare },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'promotions', label: 'Promotions', icon: Megaphone },
