@@ -57,7 +57,7 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product.name}</DialogTitle>
           <DialogDescription>
@@ -125,12 +125,12 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
 
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto">
             <div>
               <h3 className="font-semibold text-lg mb-2">Description</h3>
-              <p className="text-muted-foreground">
+              <div className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
                 {product.description || 'No description available for this product.'}
-              </p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
