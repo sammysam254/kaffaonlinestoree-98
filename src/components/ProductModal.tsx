@@ -57,15 +57,15 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{product.name}</DialogTitle>
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] overflow-hidden p-4 sm:p-6">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-lg sm:text-xl">{product.name}</DialogTitle>
           <DialogDescription>
             Product details and specifications
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 overflow-y-auto max-h-[calc(95vh-120px)]">
           <div className="relative">
             <div className="relative aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
               <img
@@ -125,10 +125,10 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
 
           </div>
 
-          <div className="space-y-4 overflow-y-auto">
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Description</h3>
-              <div className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <div className="space-y-4 min-h-0">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-3">Description</h3>
+              <div className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-48 sm:max-h-64 p-3 border rounded-lg bg-gray-50/50">
                 {product.description || 'No description available for this product.'}
               </div>
             </div>
