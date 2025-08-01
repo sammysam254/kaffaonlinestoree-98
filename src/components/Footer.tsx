@@ -144,7 +144,7 @@ const Footer = () => {
         {/* Moving Developer Credit */}
         <div className="mt-4 overflow-hidden bg-background/5 py-2">
           <div className="animate-marquee whitespace-nowrap">
-            <span className="text-background/70 text-xs">
+            <span className="text-green-400 text-xs">
               This website is designed and developed by Sam. Contact me at email: sammdev.ai@gmail.com, phone: 0707116562 for web designs and development.
             </span>
           </div>
