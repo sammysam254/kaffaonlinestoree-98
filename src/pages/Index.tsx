@@ -193,10 +193,10 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main>
-        <HeroSlider />
-        
         {/* Ads Section */}
         <AdsSection />
+        
+        <HeroSlider />
         
         {/* Admin Debug Section - Only show to admin users */}
         {user && isAdmin && (
